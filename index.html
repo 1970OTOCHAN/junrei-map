@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>四国八十八ヶ所マップ</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/pmtiles@3.2.1/dist/pmtiles.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&display=swap" rel="stylesheet">
+<style>
+  :root { --shu:#c8372d; --shu-dark:#9e2a22; --byakue:#faf7f0; --sumi:#2e2a26; }
+  html, body { margin:0; height:100%; font-family: "Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif; }
+  #bar { position:absolute; top:0; left:0; right:0; z-index:1000; display:flex; align-items:center; gap:10px;
+         flex-wrap:wrap; padding:8px 12px; background:var(--byakue); color:var(--sumi);
+         border-bottom:3px solid var(--shu); box-shadow:0 2px 6px rgba(0,0,0,.2); }
+  #bar h1 { font-size:18px; margin:0; font-weight:700; font-family:"Yuji Syuku",serif; }
+  #count { background:var(--shu); color:#fff; padding:3px 10px; border-radius:12px; font-size:14px; font-weight:700; }
+  #count.kechigan { background:#b8860b; }
+  #bar select, #bar label { font-size:14px; }
+  #bar select { padding:3px; max-width:230px; }
+  #map { position:absolute; top:51px; left:0; right:0; bottom:0; }
+  .fuda { width:28px; height:28px; border-radius:50%; background:#fff; border:2px solid var(--shu);
+          color:var(--shu); font-size:12px; font-weight:700; line-height:28px; text-align:center;
+          box-shadow:0 1px 3px rgba(0,0,0,.4); cursor:pointer; font-family:"Hiragino Sans","Meiryo",sans-serif; }
+  .fuda.visited { background:var(--shu); color:#fff; border-color:#fff; }
+  .pop { width:260px; }
+  .pop .no { color:var(--shu); font-size:13px; font-weight:700; }
+  .pop h2 { margin:0 0 2px; font-size:18px; font-family:"Yuji Syuku",serif; font-weight:400; }
+  .pop .pref { color:#666; font-size:13px; margin-bottom:6px; }
+  .pop .photo { width:260px; min-height:60px; background:#eee; display:flex; align-items:center; justify-content:center;
+                color:#888; font-size:13px; border-radius:4px; overflow:hidden; }
+  .pop .photo img { width:100%; display:block; }
+  .pop .credit { font-size:11px; color:#777; margin-top:3px; line-height:1.4; }
+  .pop button { margin-top:8px; width:100%; padding:9px; font-size:15px; border:2px solid var(--shu); border-radius:6px;
+                cursor:pointer; background:#fff; color:var(--shu); font-weight:700; }
+  .pop button.on { background:var(--shu); color:#fff; }
+  .maplibregl-popup-content { padding:10px; }
+  #notice { position:absolute; top:51px; left:0; right:0; z-index:999; display:flex; align-items:flex-start; gap:8px;
+            padding:8px 12px; background:#fff3d0; border-bottom:1px solid #e6c463; color:#7a5a12; font-size:13px; line-height:1.6; }
+  #notice .msg { flex:1; }
+  #notice button { background:none; border:none; color:#7a5a12; font-size:22px; line-height:1; cursor:pointer; padding:0 4px; }
+  #ver { font-size:12px; color:#8a7f72; margin-left:auto; }
+  #toast { position:fixed; left:50%; top:40%; transform:translate(-50%,-50%) scale(.9); z-index:4000; opacity:0; pointer-events:none;
+           background:rgba(46,42,38,.92); color:#fff; padding:22px 34px; border-radius:14px; text-align:center;
+           transition:opacity .4s, transform .4s; font-family:"Yuji Syuku",serif; }
+  #toast.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
+  #toast .big { font-size:40px; color:#f2cf6b; }
+  #toast .small { font-size:15px; margin-top:6px; }
+  #opening { position:fixed; inset:0; z-index:5000; background:#1f2529; display:flex; flex-direction:column;
+             align-items:center; justify-content:center; cursor:pointer; transition:opacity .6s; text-align:center; padding:0 16px; }
+  #opening.out { opacity:0; pointer-events:none; }
+  #opening .a { opacity:0; transform:translateY(8px); transition:opacity .7s, transform .7s; }
+  #opening.go .a { opacity:1; transform:none; }
+  #opening.go .d2 { transition-delay:.5s; } #opening.go .d3 { transition-delay:.8s; } #opening.go .d4 { transition-delay:1.1s; }
+  #opening .logo { width:200px; height:200px; max-width:60vw; max-height:60vw; display:block; }
+  #opening .t1 { font-family:"Yuji Syuku",serif; color:#fff; font-size:30px; margin-top:18px; }
+  #opening .t2 { font-family:"Yuji Syuku",serif; color:#f2cf6b; font-size:17px; margin-top:8px; }
+  #opening .t3 { color:#b9c0c4; font-size:11px; margin-top:24px; }
+  #opening .t4 { color:#8f989d; font-size:11px; margin-top:10px; line-height:1.6; }
+</style>
+</head>
+<body>
+<div id="opening">
+  <div class="a d1"><svg class="logo" viewBox="0 0 120 120" aria-hidden="true">
+    <rect x="1" y="1" width="118" height="118" rx="24" fill="#faf7f0" stroke="#c8372d" stroke-width="2"/>
+    <text x="60" y="20" text-anchor="middle" fill="#c8372d" font-size="9" font-family="Georgia,serif" letter-spacing="1">SHIKOKU 88 HENRO</text>
+    <circle cx="60" cy="68" r="38" fill="#c8372d"/>
+    <circle cx="60" cy="68" r="33" fill="none" stroke="#fff" stroke-width="2"/>
+    <text x="60" y="62" text-anchor="middle" fill="#fff" font-size="18" font-family="serif">八十八</text>
+    <text x="60" y="84" text-anchor="middle" fill="#fff" font-size="12" font-family="serif">四国遍路</text>
+    <path d="M98 92 c-6 0 -10 4 -10 9 c0 7 10 16 10 16 s10 -9 10 -16 c0 -5 -4 -9 -10 -9 z" fill="#2e2a26" stroke="#faf7f0" stroke-width="2"/>
+    <circle cx="98" cy="101" r="3.5" fill="#faf7f0"/>
+  </svg></div>
+  <div class="a d2 t1">四国八十八ヶ所マップ</div>
+  <div class="a d3 t2">国土地理院の地図で、お遍路をめぐる</div>
+  <div class="a d4 t3">© 2026 1970 OTOCHAN. All rights reserved.</div>
+  <div class="a d4 t4">本アプリは四国八十八ヶ所霊場会の公式アプリではありません。</div>
+</div>
+<div id="bar">
+  <h1>四国八十八ヶ所マップ</h1>
+  <span id="count">参拝 0 / 88</span>
+  <select id="jump"><option value="">札所を選んで移動…</option></select>
+  <label><input type="checkbox" id="onlyNot"> 未参拝だけ表示</label>
+  <span id="ver">Ver 1.0</span>
+</div>
+<div id="notice"><div class="msg">⚠ 参拝の印は、この機器のこのブラウザだけに保存されます。<br>スマホとパソコン、ブラウザが違うと別々の記録になります。</div><button id="noticeClose" aria-label="閉じる">✕</button></div>
+<div id="map"></div>
+<div id="toast"><div class="big">結願</div><div class="small">八十八ヶ所 すべて参拝しました</div></div>
+
+<script>
+// [番号, 寺名, 所在地, 緯度, 経度, Wikipedia記事名]
+const TEMPLES = [
+[1,"霊山寺","徳島県鳴門市",34.159803,134.502592,"霊山寺 (鳴門市)"],
+[2,"極楽寺","徳島県鳴門市",34.155556,134.490278,"極楽寺 (鳴門市)"],
+[3,"金泉寺","徳島県板野町",34.147436,134.468544,"金泉寺"],
+[4,"大日寺","徳島県板野町",34.151306,134.430889,"大日寺 (鳴門市)"],
+[5,"地蔵寺","徳島県板野町",34.137222,134.431944,"地蔵寺 (板野町)"],
+[6,"安楽寺","徳島県上板町",34.118056,134.388389,"安楽寺 (上板町)"],
+[7,"十楽寺","徳島県阿波市",34.12075,134.377925,"十楽寺"],
+[8,"熊谷寺","徳島県阿波市",34.122778,134.34,"熊谷寺 (阿波市)"],
+[9,"法輪寺","徳島県阿波市",34.104378,134.333814,"法輪寺 (阿波市)"],
+[10,"切幡寺","徳島県阿波市",34.10775,134.304278,"切幡寺"],
+[11,"藤井寺","徳島県吉野川市",34.051667,134.3485,"藤井寺 (吉野川市)"],
+[12,"焼山寺","徳島県神山町",33.985028,134.31025,"焼山寺"],
+[13,"大日寺","徳島県徳島市",34.038117,134.462683,"大日寺 (徳島市)"],
+[14,"常楽寺","徳島県徳島市",34.050333,134.475639,"常楽寺 (徳島市)"],
+[15,"阿波国分寺","徳島県徳島市",34.055611,134.473611,"国分寺 (徳島市)"],
+[16,"観音寺","徳島県徳島市",34.068472,134.474344,"観音寺 (徳島市)"],
+[17,"井戸寺","徳島県徳島市",34.085167,134.485444,"井戸寺"],
+[18,"恩山寺","徳島県小松島市",33.986,134.57825,"恩山寺"],
+[19,"立江寺","徳島県小松島市",33.967861,134.605806,"立江寺"],
+[20,"鶴林寺","徳島県勝浦町",33.913861,134.505611,"鶴林寺 (勝浦町)"],
+[21,"太龍寺","徳島県阿南市",33.882528,134.521889,"太龍寺"],
+[22,"平等寺","徳島県阿南市",33.851833,134.582778,"平等寺 (阿南市)"],
+[23,"薬王寺","徳島県美波町",33.732306,134.527583,"薬王寺 (美波町)"],
+[24,"最御崎寺","高知県室戸市",33.249008,134.175739,"最御崎寺"],
+[25,"津照寺","高知県室戸市",33.287806,134.14825,"津照寺"],
+[26,"金剛頂寺","高知県室戸市",33.307222,134.122861,"金剛頂寺"],
+[27,"神峯寺","高知県安田町",33.467611,133.974778,"神峯寺"],
+[28,"大日寺","高知県香南市",33.577583,133.705389,"大日寺 (香南市)"],
+[29,"土佐国分寺","高知県南国市",33.598694,133.640417,"国分寺 (南国市)"],
+[30,"善楽寺","高知県高知市",33.591917,133.577556,"善楽寺"],
+[31,"竹林寺","高知県高知市",33.546611,133.577472,"竹林寺 (高知市)"],
+[32,"禅師峰寺","高知県南国市",33.526694,133.611389,"禅師峰寺"],
+[33,"雪蹊寺","高知県高知市",33.500833,133.543083,"雪蹊寺"],
+[34,"種間寺","高知県高知市",33.491722,133.487583,"種間寺"],
+[35,"清瀧寺","高知県土佐市",33.5125,133.4095,"清瀧寺 (土佐市)"],
+[36,"青龍寺","高知県土佐市",33.426,133.450806,"青龍寺 (土佐市)"],
+[37,"岩本寺","高知県四万十町",33.207972,133.134611,"岩本寺"],
+[38,"金剛福寺","高知県土佐清水市",32.726028,133.018556,"金剛福寺"],
+[39,"延光寺","高知県宿毛市",32.961306,132.774056,"延光寺"],
+[40,"観自在寺","愛媛県愛南町",32.964667,132.564056,"観自在寺"],
+[41,"龍光寺","愛媛県宇和島市",33.295194,132.5985,"龍光寺 (宇和島市)"],
+[42,"佛木寺","愛媛県宇和島市",33.310583,132.581472,"佛木寺"],
+[43,"明石寺","愛媛県西予市",33.369222,132.518972,"明石寺"],
+[44,"大宝寺","愛媛県久万高原町",33.660889,132.912083,"大宝寺 (久万高原町)"],
+[45,"岩屋寺","愛媛県久万高原町",33.658667,132.980722,"岩屋寺"],
+[46,"浄瑠璃寺","愛媛県松山市",33.753556,132.819111,"浄瑠璃寺 (松山市)"],
+[47,"八坂寺","愛媛県松山市",33.757944,132.812861,"八坂寺 (松山市)"],
+[48,"西林寺","愛媛県松山市",33.793722,132.813944,"西林寺 (松山市)"],
+[49,"浄土寺","愛媛県松山市",33.816667,132.808528,"浄土寺 (松山市)"],
+[50,"繁多寺","愛媛県松山市",33.828139,132.804556,"繁多寺"],
+[51,"石手寺","愛媛県松山市",33.847861,132.796472,"石手寺"],
+[52,"太山寺","愛媛県松山市",33.885083,132.714972,"太山寺 (松山市)"],
+[53,"圓明寺","愛媛県松山市",33.89175,132.739667,"圓明寺 (松山市)"],
+[54,"延命寺","愛媛県今治市",34.066833,132.964,"延命寺 (今治市)"],
+[55,"南光坊","愛媛県今治市",34.06875,132.99575,"南光坊"],
+[56,"泰山寺","愛媛県今治市",34.050111,132.974583,"泰山寺 (今治市)"],
+[57,"栄福寺","愛媛県今治市",34.029472,132.978472,"栄福寺"],
+[58,"仙遊寺","愛媛県今治市",34.013194,132.977361,"仙遊寺"],
+[59,"伊予国分寺","愛媛県今治市",34.026167,133.025444,"国分寺 (今治市)"],
+[60,"横峰寺","愛媛県西条市",33.837861,133.111139,"横峰寺"],
+[61,"香園寺","愛媛県西条市",33.893528,133.103306,"香園寺"],
+[62,"宝寿寺","愛媛県西条市",33.897333,133.114944,"宝寿寺 (西条市)"],
+[63,"吉祥寺","愛媛県西条市",33.896056,133.129167,"吉祥寺 (西条市)"],
+[64,"前神寺","愛媛県西条市",33.890222,133.160667,"前神寺"],
+[65,"三角寺","愛媛県四国中央市",33.967639,133.5865,"三角寺"],
+[66,"雲辺寺","徳島県三好市",34.035222,133.723722,"雲辺寺"],
+[67,"大興寺","香川県三豊市",34.102194,133.719167,"大興寺 (三豊市)"],
+[68,"神恵院","香川県観音寺市",34.133986,133.647333,"神恵院"],
+[69,"観音寺","香川県観音寺市",34.1345,133.647528,"観音寺 (観音寺市)"],
+[70,"本山寺","香川県三豊市",34.139667,133.694056,"本山寺 (三豊市)"],
+[71,"弥谷寺","香川県三豊市",34.229722,133.724261,"弥谷寺"],
+[72,"曼荼羅寺","香川県善通寺市",34.223306,133.750219,"曼荼羅寺 (善通寺市)"],
+[73,"出釈迦寺","香川県善通寺市",34.219389,133.750278,"出釈迦寺"],
+[74,"甲山寺","香川県善通寺市",34.233194,133.765764,"甲山寺"],
+[75,"善通寺","香川県善通寺市",34.225111,133.774139,"善通寺"],
+[76,"金倉寺","香川県善通寺市",34.250097,133.781014,"金倉寺"],
+[77,"道隆寺","香川県多度津町",34.27675,133.762694,"道隆寺 (多度津町)"],
+[78,"郷照寺","香川県宇多津町",34.306694,133.824583,"郷照寺"],
+[79,"天皇寺","香川県坂出市",34.311472,133.882861,"天皇寺"],
+[80,"讃岐国分寺","香川県高松市",34.303139,133.944167,"国分寺 (高松市)"],
+[81,"白峯寺","香川県坂出市",34.333528,133.926764,"白峯寺"],
+[82,"根香寺","香川県高松市",34.3445,133.960556,"根香寺"],
+[83,"一宮寺","香川県高松市",34.286611,134.026583,"一宮寺"],
+[84,"屋島寺","香川県高松市",34.357917,134.10125,"屋島寺"],
+[85,"八栗寺","香川県高松市",34.359889,134.139528,"八栗寺"],
+[86,"志度寺","香川県さぬき市",34.324306,134.179639,"志度寺"],
+[87,"長尾寺","香川県さぬき市",34.266706,134.171719,"長尾寺 (さぬき市)"],
+[88,"大窪寺","香川県さぬき市",34.191408,134.206733,"大窪寺"],
+];
+// 四国の四つの道場
+const DOJO = [
+  [1, 23, "阿波（徳島）発心の道場"],
+  [24, 39, "土佐（高知）修行の道場"],
+  [40, 65, "伊予（愛媛）菩提の道場"],
+  [66, 88, "讃岐（香川）涅槃の道場"],
+];
+const TOTAL = TEMPLES.length;
+
+// ---- 参拝記録（このブラウザに保存） ----
+const KEY = "ohenro88_visited";
+let visited = new Set();
+try { visited = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch(e) {}
+function saveVisited(){ try { localStorage.setItem(KEY, JSON.stringify([...visited])); } catch(e) {} }
+function updateCount(){
+  const c = document.getElementById("count");
+  const done = visited.size >= TOTAL;
+  c.textContent = done ? `結願 ${visited.size} / ${TOTAL}` : `参拝 ${visited.size} / ${TOTAL}`;
+  c.classList.toggle("kechigan", done);
+}
+function showKechigan(){
+  const t = document.getElementById("toast");
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 3500);
+}
+
+// ---- 地図（国土地理院 最適化ベクトルタイル） ----
+const pmProtocol = new pmtiles.Protocol();
+maplibregl.addProtocol("pmtiles", pmProtocol.tile);
+const SHIKOKU = [[132.35, 32.65], [134.85, 34.45]];       // 最初に見せる範囲（四国全体）
+const LIMIT   = [[131.3, 31.9], [135.8, 35.2]];           // これより外には動かせない
+const map = new maplibregl.Map({
+  container: "map",
+  style: "https://gsi-cyberjapan.github.io/optimal_bvmap/style/std.json",
+  bounds: SHIKOKU, fitBoundsOptions: { padding: 10 }, maxBounds: LIMIT, maxZoom: 17.5,
+  dragRotate: false, pitchWithRotate: false, attributionControl: false
+});
+map.touchZoomRotate.disableRotation();
+map.addControl(new maplibregl.NavigationControl({ showCompass:false }), "top-left");
+map.addControl(new maplibregl.AttributionControl({ compact:false,
+  customAttribution: '出典：<a href="https://github.com/gsi-cyberjapan/optimal_bvmap" target="_blank">国土地理院最適化ベクトルタイル</a>' }));
+map.on("load", () => {
+  map.getStyle().layers.forEach(l => {
+    if (["AdmBdry","Cntr"].includes(l["source-layer"])) map.setLayoutProperty(l.id, "visibility", "none");
+  });
+});
+
+function paintIcon(el, no){ el.classList.toggle("visited", visited.has(no)); }
+
+// ---- 写真（Wikipedia / ウィキメディア・コモンズ） ----
+const photoCache = {};
+const API = "https://ja.wikipedia.org/w/api.php?format=json&origin=*&action=query";
+function stripHtml(h){ const d = document.createElement("div"); d.innerHTML = h || ""; return d.textContent.trim(); }
+async function findPage(title, name, place){
+  const r1 = await fetch(`${API}&redirects=1&prop=pageimages&piprop=thumbnail|name&pithumbsize=640&titles=${encodeURIComponent(title)}`).then(r=>r.json());
+  const page = Object.values(r1.query.pages)[0];
+  if (!page.missing && page.thumbnail) return page;
+  // 記事名で見つからないときは「寺名＋所在地」で探す
+  const q = `${name} ${place.replace(/^(徳島|高知|愛媛|香川)県/,"")} 四国八十八箇所`;
+  const r2 = await fetch(`${API}&generator=search&gsrlimit=1&gsrsearch=${encodeURIComponent(q)}&prop=pageimages&piprop=thumbnail|name&pithumbsize=640`).then(r=>r.json());
+  if (r2.query && r2.query.pages) return Object.values(r2.query.pages)[0];
+  return page;
+}
+async function getPhoto(title, name, place){
+  if (photoCache[title]) return photoCache[title];
+  const page = await findPage(title, name, place);
+  const info = { pageUrl:`https://ja.wikipedia.org/wiki/${encodeURIComponent(page.title || title)}` };
+  if (page.thumbnail) {
+    info.src = page.thumbnail.source;
+    try {
+      const r = await fetch(`${API}&prop=imageinfo&iiprop=extmetadata|url&titles=${encodeURIComponent("File:" + page.pageimage)}`).then(r=>r.json());
+      const ii = Object.values(r.query.pages)[0].imageinfo[0];
+      info.fileUrl = ii.descriptionurl;
+      info.artist = stripHtml(ii.extmetadata.Artist && ii.extmetadata.Artist.value);
+      info.license = stripHtml(ii.extmetadata.LicenseShortName && ii.extmetadata.LicenseShortName.value);
+    } catch(e) {}
+  }
+  photoCache[title] = info;
+  return info;
+}
+
+// ---- マーカー ----
+const markers = {};
+const jump = document.getElementById("jump");
+const groups = DOJO.map(([a, b, label]) => {
+  const g = document.createElement("optgroup"); g.label = label; jump.appendChild(g); return { a, b, g };
+});
+
+TEMPLES.forEach(([no, name, place, lat, lng, wiki]) => {
+  const el = document.createElement("div");
+  el.className = "fuda";
+  el.textContent = no; el.title = `第${no}番 ${name}`;
+  paintIcon(el, no);
+
+  const dojo = DOJO.find(([a, b]) => no >= a && no <= b)[2];
+  const box = document.createElement("div");
+  box.className = "pop";
+  box.innerHTML = `<div class="no">第${no}番札所</div><h2>${name}</h2><div class="pref">${place}　｜　${dojo}</div>
+    <div class="photo">写真を読み込み中…</div><div class="credit"></div><button></button>`;
+  const btn = box.querySelector("button");
+  function paintBtn(){
+    const v = visited.has(no);
+    btn.textContent = v ? "㊞ 参拝済み（タップで取り消し）" : "参拝した印を付ける";
+    btn.className = v ? "on" : "";
+  }
+  btn.onclick = () => {
+    const before = visited.size;
+    visited.has(no) ? visited.delete(no) : visited.add(no);
+    saveVisited(); updateCount(); paintBtn(); paintIcon(el, no); applyFilter();
+    if (before < TOTAL && visited.size === TOTAL) showKechigan();
+  };
+  paintBtn();
+
+  const popup = new maplibregl.Popup({ maxWidth:"290px", offset:16 }).setDOMContent(box);
+  const m = new maplibregl.Marker({ element: el }).setLngLat([lng, lat]).setPopup(popup);
+
+  let loaded = false;
+  popup.on("open", async () => {
+    if (loaded) return; loaded = true;
+    const photo = box.querySelector(".photo"), credit = box.querySelector(".credit");
+    try {
+      const p = await getPhoto(wiki, name, place);
+      if (p.src) {
+        const img = new Image();
+        img.src = p.src; img.alt = name;
+        photo.innerHTML = ""; photo.appendChild(img);
+        const who = [p.artist, p.license].filter(Boolean).join(" / ");
+        credit.innerHTML = `写真：<a href="${p.fileUrl || p.pageUrl}" target="_blank">ウィキメディア・コモンズ</a>${who ? "（" + who.replace(/</g,"&lt;") + "）" : ""}
+          ・<a href="${p.pageUrl}" target="_blank">Wikipediaで詳しく</a>`;
+      } else {
+        photo.textContent = "写真が見つかりませんでした";
+        credit.innerHTML = `<a href="${p.pageUrl}" target="_blank">Wikipediaで見る</a>`;
+      }
+    } catch(e) {
+      loaded = false;
+      photo.textContent = "写真を読み込めませんでした（インターネット接続を確認してください）";
+    }
+  });
+
+  m.addTo(map);
+  markers[no] = { m, popup, shown: true };
+  const opt = document.createElement("option");
+  opt.value = no; opt.textContent = `${no}. ${name}（${place.replace(/^(徳島|高知|愛媛|香川)県/,"")}）`;
+  groups.find(x => no >= x.a && no <= x.b).g.appendChild(opt);
+});
+
+jump.onchange = () => {
+  const no = Number(jump.value); if (!no) return;
+  const k = markers[no];
+  if (!k.shown) { k.m.addTo(map); k.shown = true; }
+  map.flyTo({ center: k.m.getLngLat(), zoom: 15 });
+  if (!k.popup.isOpen()) k.m.togglePopup();
+};
+
+const onlyNot = document.getElementById("onlyNot");
+function applyFilter(){
+  TEMPLES.forEach(([no]) => {
+    const k = markers[no], hide = onlyNot.checked && visited.has(no);
+    if (hide && k.shown && !k.popup.isOpen()) { k.m.remove(); k.shown = false; }
+    if (!hide && !k.shown) { k.m.addTo(map); k.shown = true; }
+  });
+}
+onlyNot.onchange = applyFilter;
+updateCount();
+
+// ---- 注意書き（地図を開いたとき、帯の下に出す。✕で閉じる） ----
+(function(){
+  const n = document.getElementById("notice"), mapEl = document.getElementById("map");
+  function fit(){ if (n.isConnected) { mapEl.style.top = (51 + n.offsetHeight) + "px"; map.resize(); } }
+  fit(); window.addEventListener("resize", fit);
+  document.getElementById("noticeClose").onclick = () => { n.remove(); mapEl.style.top = "51px"; map.resize(); };
+})();
+
+// ---- オープニング ----
+(function(){
+  const op = document.getElementById("opening");
+  if (new URLSearchParams(location.search).has("skip")) { op.remove(); history.replaceState(null, "", location.pathname); return; }
+  let closed = false;
+  function close(){ if (closed) return; closed = true; op.classList.add("out"); setTimeout(() => op.remove(), 700); }
+  setTimeout(() => op.classList.add("go"), 50);
+  setTimeout(close, 3100);
+  op.addEventListener("click", close);
+})();
+</script>
+</body>
+</html>
