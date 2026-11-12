@@ -448,9 +448,10 @@ document.getElementById("loadBtn").onclick = () => {
   const added = addRecord(set);
   msg.className = "msg ok"; msg.textContent = `読み込みました。新しく ${added}か寺 の印が付きました（合計 ${visited.size}か寺）。`;
   document.getElementById("outCode").value = encodeRecord(visited);
+  document.getElementById("outInfo").textContent = `この機器の参拝記録が入っています（今：${visited.size}か寺）`;
 };
 // QRコードやリンクから開いたとき（アドレスの最後が #r=…）
-(function(){
+function checkLink(){
   const m = location.hash.match(/^#r=([A-Za-z0-9_-]+)$/); if (!m) return;
   history.replaceState(null, "", location.pathname);
   const set = decodeRecord(m[1]), ask = document.getElementById("ask"), txt = document.getElementById("askText");
@@ -463,7 +464,9 @@ document.getElementById("loadBtn").onclick = () => {
     const added = addRecord(set); ask.classList.remove("open");
     alertBox(`読み込みました。新しく ${added}か寺 の印が付きました。`);
   };
-})();
+}
+checkLink();
+window.addEventListener("hashchange", checkLink);
 function alertBox(text){
   const t = document.getElementById("toast");
   t.querySelector(".big").textContent = "㊞"; t.querySelector(".small").textContent = text;
