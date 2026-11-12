@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/pmtiles@3.2.1/dist/pmtiles.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&display=swap" rel="stylesheet">
 <style>
@@ -21,6 +22,7 @@
   #bar select, #bar label { font-size:14px; }
   #bar select { padding:3px; max-width:230px; }
   #map { position:absolute; top:51px; left:0; right:0; bottom:0; }
+  #kirokuBtn { background:#e0b23a; color:#3b2a10; border:none; border-radius:14px; padding:4px 12px; font-size:14px; font-weight:700; cursor:pointer; }
   .fuda { width:28px; height:28px; border-radius:50%; background:#fff; border:2px solid var(--shu);
           color:var(--shu); font-size:12px; font-weight:700; line-height:28px; text-align:center;
           box-shadow:0 1px 3px rgba(0,0,0,.4); cursor:pointer; font-family:"Hiragino Sans","Meiryo",sans-serif; }
@@ -41,6 +43,27 @@
             padding:8px 12px; background:#fff3d0; border-bottom:1px solid #e6c463; color:#7a5a12; font-size:13px; line-height:1.6; }
   #notice .msg { flex:1; }
   #notice button { background:none; border:none; color:#7a5a12; font-size:22px; line-height:1; cursor:pointer; padding:0 4px; }
+  .modal { position:fixed; inset:0; z-index:3000; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; padding:12px; }
+  .modal.open { display:flex; }
+  .sheet { background:#fff; border-radius:12px; width:100%; max-width:400px; max-height:92vh; overflow:auto; padding:16px 18px; position:relative; color:var(--sumi); box-shadow:0 6px 24px rgba(0,0,0,.3); }
+  .sheet h2 { text-align:center; margin:0 0 10px; font-size:19px; font-family:"Yuji Syuku",serif; font-weight:400; }
+  .sheet h3 { font-size:15px; margin:12px 0 4px; }
+  .sheet .x { position:absolute; right:10px; top:6px; background:none; border:none; font-size:24px; color:#888; cursor:pointer; }
+  .sheet .sub { font-size:12px; color:#777; margin-bottom:6px; }
+  .sheet .row { display:flex; gap:6px; }
+  .sheet input[type=text] { flex:1; min-width:0; padding:8px; font-size:14px; border:1px solid #ccc; border-radius:6px; font-family:monospace; }
+  .sheet .btn { padding:8px 14px; font-size:15px; font-weight:700; border:none; border-radius:6px; cursor:pointer; background:var(--sumi); color:#fff; white-space:nowrap; }
+  .sheet .btn.red { background:var(--shu); width:100%; margin-top:8px; }
+  .sheet .btn.light { background:#eee; color:var(--sumi); }
+  .sheet .qr { display:flex; gap:10px; align-items:center; margin-top:10px; }
+  .sheet .qr #qrBox { width:120px; height:120px; flex:none; border:1px solid #ddd; }
+  .sheet .qr #qrBox img, .sheet .qr #qrBox svg { width:100%; height:100%; display:block; }
+  .sheet .qr p { font-size:12px; color:#555; margin:0; line-height:1.6; }
+  .sheet hr { border:none; border-top:1px solid #eee; margin:14px 0 4px; }
+  .sheet .note { font-size:12px; color:#666; margin-top:8px; line-height:1.6; }
+  .sheet .tip { font-size:12px; background:#fff3d0; border:1px solid #e6c463; color:#7a5a12; border-radius:6px; padding:8px 10px; margin-top:10px; line-height:1.6; }
+  .sheet .msg { font-size:13px; margin-top:6px; min-height:1em; }
+  .sheet .msg.ok { color:#1f7a3d; } .sheet .msg.ng { color:var(--shu); }
   #ver { font-size:12px; color:#8a7f72; margin-left:auto; }
   #toast { position:fixed; left:50%; top:40%; transform:translate(-50%,-50%) scale(.9); z-index:4000; opacity:0; pointer-events:none;
            background:rgba(46,42,38,.92); color:#fff; padding:22px 34px; border-radius:14px; text-align:center;
@@ -83,10 +106,32 @@
   <span id="count">参拝 0 / 88</span>
   <select id="jump"><option value="">札所を選んで移動…</option></select>
   <label><input type="checkbox" id="onlyNot"> 未参拝だけ表示</label>
-  <span id="ver">Ver 1.0</span>
+  <button id="kirokuBtn">記録の受け渡し</button>
+  <span id="ver">Ver 2.0</span>
 </div>
 <div id="notice"><div class="msg">⚠ 参拝の印は、この機器のこのブラウザだけに保存されます。<br>スマホとパソコン、ブラウザが違うと別々の記録になります。</div><button id="noticeClose" aria-label="閉じる">✕</button></div>
 <div id="map"></div>
+<div class="modal" id="kiroku"><div class="sheet">
+  <button class="x" data-close aria-label="閉じる">✕</button>
+  <h2>記録の受け渡し</h2>
+  <h3>① 書き出す（この機器の記録を渡す）</h3>
+  <div class="sub" id="outInfo"></div>
+  <div class="row"><input type="text" id="outCode" readonly><button class="btn" id="copyBtn">コピー</button></div>
+  <div class="msg" id="copyMsg"></div>
+  <div class="qr"><div id="qrBox"></div><p>もう片方の機器のカメラでこのQRコードを読み取ると、アプリが開いて「読み込みますか？」と聞かれます。</p></div>
+  <hr>
+  <h3>② 読み込む（もらった記録を入れる）</h3>
+  <div class="row"><input type="text" id="inCode" placeholder="ここに書き出した文字を貼り付け"></div>
+  <button class="btn red" id="loadBtn">読み込む</button>
+  <div class="msg" id="loadMsg"></div>
+  <div class="note">今の印は消さずに、もらった印を足します。<br>（例：スマホに5か寺、パソコンに3か寺 → 両方の8か寺になる）</div>
+  <div class="tip">そろえたいときは、両方の機器で書き出し→読み込みを1回ずつすると、どちらも同じ印になります。</div>
+</div></div>
+<div class="modal" id="ask"><div class="sheet">
+  <h2>記録の読み込み</h2>
+  <p id="askText" style="font-size:15px;line-height:1.7;margin:4px 0 10px;"></p>
+  <div class="row"><button class="btn red" id="askYes" style="margin-top:0">読み込む</button><button class="btn light" id="askNo">やめる</button></div>
+</div></div>
 <div id="toast"><div class="big">結願</div><div class="small">八十八ヶ所 すべて参拝しました</div></div>
 
 <script>
@@ -95,10 +140,10 @@ const TEMPLES = [
 [1,"霊山寺","徳島県鳴門市",34.159803,134.502592,"霊山寺 (鳴門市)"],
 [2,"極楽寺","徳島県鳴門市",34.155556,134.490278,"極楽寺 (鳴門市)"],
 [3,"金泉寺","徳島県板野町",34.147436,134.468544,"金泉寺"],
-[4,"大日寺","徳島県板野町",34.151306,134.430889,"大日寺 (鳴門市)"],
-[5,"地蔵寺","徳島県板野町",34.137222,134.431944,"地蔵寺 (板野町)"],
-[6,"安楽寺","徳島県上板町",34.118056,134.388389,"安楽寺 (上板町)"],
-[7,"十楽寺","徳島県阿波市",34.12075,134.377925,"十楽寺"],
+[4,"大日寺","徳島県板野町",34.151306,134.430889,"大日寺 (徳島県板野町)"],
+[5,"地蔵寺","徳島県板野町",34.137222,134.431944,"地蔵寺 (徳島県板野町)"],
+[6,"安楽寺","徳島県上板町",34.118056,134.388389,"安楽寺 (徳島県上板町)"],
+[7,"十楽寺","徳島県阿波市",34.12075,134.377925,"十楽寺 (阿波市)"],
 [8,"熊谷寺","徳島県阿波市",34.122778,134.34,"熊谷寺 (阿波市)"],
 [9,"法輪寺","徳島県阿波市",34.104378,134.333814,"法輪寺 (阿波市)"],
 [10,"切幡寺","徳島県阿波市",34.10775,134.304278,"切幡寺"],
@@ -106,21 +151,21 @@ const TEMPLES = [
 [12,"焼山寺","徳島県神山町",33.985028,134.31025,"焼山寺"],
 [13,"大日寺","徳島県徳島市",34.038117,134.462683,"大日寺 (徳島市)"],
 [14,"常楽寺","徳島県徳島市",34.050333,134.475639,"常楽寺 (徳島市)"],
-[15,"阿波国分寺","徳島県徳島市",34.055611,134.473611,"国分寺 (徳島市)"],
-[16,"観音寺","徳島県徳島市",34.068472,134.474344,"観音寺 (徳島市)"],
+[15,"阿波国分寺","徳島県徳島市",34.055611,134.473611,"阿波国分寺"],
+[16,"観音寺","徳島県徳島市",34.068472,134.474344,"観音寺 (徳島市国府町観音寺)"],
 [17,"井戸寺","徳島県徳島市",34.085167,134.485444,"井戸寺"],
 [18,"恩山寺","徳島県小松島市",33.986,134.57825,"恩山寺"],
-[19,"立江寺","徳島県小松島市",33.967861,134.605806,"立江寺"],
-[20,"鶴林寺","徳島県勝浦町",33.913861,134.505611,"鶴林寺 (勝浦町)"],
+[19,"立江寺","徳島県小松島市",33.967861,134.605806,"立江寺 (小松島市)"],
+[20,"鶴林寺","徳島県勝浦町",33.913861,134.505611,"鶴林寺 (徳島県勝浦町)"],
 [21,"太龍寺","徳島県阿南市",33.882528,134.521889,"太龍寺"],
 [22,"平等寺","徳島県阿南市",33.851833,134.582778,"平等寺 (阿南市)"],
-[23,"薬王寺","徳島県美波町",33.732306,134.527583,"薬王寺 (美波町)"],
+[23,"薬王寺","徳島県美波町",33.732306,134.527583,"薬王寺 (徳島県美波町)"],
 [24,"最御崎寺","高知県室戸市",33.249008,134.175739,"最御崎寺"],
 [25,"津照寺","高知県室戸市",33.287806,134.14825,"津照寺"],
-[26,"金剛頂寺","高知県室戸市",33.307222,134.122861,"金剛頂寺"],
+[26,"金剛頂寺","高知県室戸市",33.307222,134.122861,"金剛頂寺 (室戸市)"],
 [27,"神峯寺","高知県安田町",33.467611,133.974778,"神峯寺"],
 [28,"大日寺","高知県香南市",33.577583,133.705389,"大日寺 (香南市)"],
-[29,"土佐国分寺","高知県南国市",33.598694,133.640417,"国分寺 (南国市)"],
+[29,"土佐国分寺","高知県南国市",33.598694,133.640417,"土佐国分寺"],
 [30,"善楽寺","高知県高知市",33.591917,133.577556,"善楽寺"],
 [31,"竹林寺","高知県高知市",33.546611,133.577472,"竹林寺 (高知市)"],
 [32,"禅師峰寺","高知県南国市",33.526694,133.611389,"禅師峰寺"],
@@ -135,8 +180,8 @@ const TEMPLES = [
 [41,"龍光寺","愛媛県宇和島市",33.295194,132.5985,"龍光寺 (宇和島市)"],
 [42,"佛木寺","愛媛県宇和島市",33.310583,132.581472,"佛木寺"],
 [43,"明石寺","愛媛県西予市",33.369222,132.518972,"明石寺"],
-[44,"大宝寺","愛媛県久万高原町",33.660889,132.912083,"大宝寺 (久万高原町)"],
-[45,"岩屋寺","愛媛県久万高原町",33.658667,132.980722,"岩屋寺"],
+[44,"大宝寺","愛媛県久万高原町",33.660889,132.912083,"大寶寺"],
+[45,"岩屋寺","愛媛県久万高原町",33.658667,132.980722,"岩屋寺 (愛媛県久万高原町)"],
 [46,"浄瑠璃寺","愛媛県松山市",33.753556,132.819111,"浄瑠璃寺 (松山市)"],
 [47,"八坂寺","愛媛県松山市",33.757944,132.812861,"八坂寺 (松山市)"],
 [48,"西林寺","愛媛県松山市",33.793722,132.813944,"西林寺 (松山市)"],
@@ -144,16 +189,16 @@ const TEMPLES = [
 [50,"繁多寺","愛媛県松山市",33.828139,132.804556,"繁多寺"],
 [51,"石手寺","愛媛県松山市",33.847861,132.796472,"石手寺"],
 [52,"太山寺","愛媛県松山市",33.885083,132.714972,"太山寺 (松山市)"],
-[53,"圓明寺","愛媛県松山市",33.89175,132.739667,"圓明寺 (松山市)"],
+[53,"圓明寺","愛媛県松山市",33.89175,132.739667,"圓明寺"],
 [54,"延命寺","愛媛県今治市",34.066833,132.964,"延命寺 (今治市)"],
 [55,"南光坊","愛媛県今治市",34.06875,132.99575,"南光坊"],
-[56,"泰山寺","愛媛県今治市",34.050111,132.974583,"泰山寺 (今治市)"],
-[57,"栄福寺","愛媛県今治市",34.029472,132.978472,"栄福寺"],
+[56,"泰山寺","愛媛県今治市",34.050111,132.974583,"泰山寺"],
+[57,"栄福寺","愛媛県今治市",34.029472,132.978472,"栄福寺 (今治市)"],
 [58,"仙遊寺","愛媛県今治市",34.013194,132.977361,"仙遊寺"],
-[59,"伊予国分寺","愛媛県今治市",34.026167,133.025444,"国分寺 (今治市)"],
+[59,"伊予国分寺","愛媛県今治市",34.026167,133.025444,"伊予国分寺"],
 [60,"横峰寺","愛媛県西条市",33.837861,133.111139,"横峰寺"],
 [61,"香園寺","愛媛県西条市",33.893528,133.103306,"香園寺"],
-[62,"宝寿寺","愛媛県西条市",33.897333,133.114944,"宝寿寺 (西条市)"],
+[62,"宝寿寺","愛媛県西条市",33.897333,133.114944,"宝寿寺"],
 [63,"吉祥寺","愛媛県西条市",33.896056,133.129167,"吉祥寺 (西条市)"],
 [64,"前神寺","愛媛県西条市",33.890222,133.160667,"前神寺"],
 [65,"三角寺","愛媛県四国中央市",33.967639,133.5865,"三角寺"],
@@ -168,17 +213,17 @@ const TEMPLES = [
 [74,"甲山寺","香川県善通寺市",34.233194,133.765764,"甲山寺"],
 [75,"善通寺","香川県善通寺市",34.225111,133.774139,"善通寺"],
 [76,"金倉寺","香川県善通寺市",34.250097,133.781014,"金倉寺"],
-[77,"道隆寺","香川県多度津町",34.27675,133.762694,"道隆寺 (多度津町)"],
+[77,"道隆寺","香川県多度津町",34.27675,133.762694,"道隆寺"],
 [78,"郷照寺","香川県宇多津町",34.306694,133.824583,"郷照寺"],
-[79,"天皇寺","香川県坂出市",34.311472,133.882861,"天皇寺"],
-[80,"讃岐国分寺","香川県高松市",34.303139,133.944167,"国分寺 (高松市)"],
+[79,"天皇寺","香川県坂出市",34.311472,133.882861,"天皇寺 (坂出市)"],
+[80,"讃岐国分寺","香川県高松市",34.303139,133.944167,"讃岐国分寺"],
 [81,"白峯寺","香川県坂出市",34.333528,133.926764,"白峯寺"],
 [82,"根香寺","香川県高松市",34.3445,133.960556,"根香寺"],
 [83,"一宮寺","香川県高松市",34.286611,134.026583,"一宮寺"],
 [84,"屋島寺","香川県高松市",34.357917,134.10125,"屋島寺"],
 [85,"八栗寺","香川県高松市",34.359889,134.139528,"八栗寺"],
 [86,"志度寺","香川県さぬき市",34.324306,134.179639,"志度寺"],
-[87,"長尾寺","香川県さぬき市",34.266706,134.171719,"長尾寺 (さぬき市)"],
+[87,"長尾寺","香川県さぬき市",34.266706,134.171719,"長尾寺"],
 [88,"大窪寺","香川県さぬき市",34.191408,134.206733,"大窪寺"],
 ];
 // 四国の四つの道場
@@ -211,7 +256,7 @@ function showKechigan(){
 const pmProtocol = new pmtiles.Protocol();
 maplibregl.addProtocol("pmtiles", pmProtocol.tile);
 const SHIKOKU = [[132.35, 32.65], [134.85, 34.45]];       // 最初に見せる範囲（四国全体）
-const LIMIT   = [[131.3, 31.9], [135.8, 35.2]];           // これより外には動かせない
+const LIMIT   = [[130.8, 30.6], [136.4, 36.4]];           // これより外には動かせない（スマホの縦長画面でも四国全体が入る広さ）
 const map = new maplibregl.Map({
   container: "map",
   style: "https://gsi-cyberjapan.github.io/optimal_bvmap/style/std.json",
@@ -234,19 +279,10 @@ function paintIcon(el, no){ el.classList.toggle("visited", visited.has(no)); }
 const photoCache = {};
 const API = "https://ja.wikipedia.org/w/api.php?format=json&origin=*&action=query";
 function stripHtml(h){ const d = document.createElement("div"); d.innerHTML = h || ""; return d.textContent.trim(); }
-async function findPage(title, name, place){
+async function getPhoto(title){
+  if (photoCache[title]) return photoCache[title];
   const r1 = await fetch(`${API}&redirects=1&prop=pageimages&piprop=thumbnail|name&pithumbsize=640&titles=${encodeURIComponent(title)}`).then(r=>r.json());
   const page = Object.values(r1.query.pages)[0];
-  if (!page.missing && page.thumbnail) return page;
-  // 記事名で見つからないときは「寺名＋所在地」で探す
-  const q = `${name} ${place.replace(/^(徳島|高知|愛媛|香川)県/,"")} 四国八十八箇所`;
-  const r2 = await fetch(`${API}&generator=search&gsrlimit=1&gsrsearch=${encodeURIComponent(q)}&prop=pageimages&piprop=thumbnail|name&pithumbsize=640`).then(r=>r.json());
-  if (r2.query && r2.query.pages) return Object.values(r2.query.pages)[0];
-  return page;
-}
-async function getPhoto(title, name, place){
-  if (photoCache[title]) return photoCache[title];
-  const page = await findPage(title, name, place);
   const info = { pageUrl:`https://ja.wikipedia.org/wiki/${encodeURIComponent(page.title || title)}` };
   if (page.thumbnail) {
     info.src = page.thumbnail.source;
@@ -302,7 +338,7 @@ TEMPLES.forEach(([no, name, place, lat, lng, wiki]) => {
     if (loaded) return; loaded = true;
     const photo = box.querySelector(".photo"), credit = box.querySelector(".credit");
     try {
-      const p = await getPhoto(wiki, name, place);
+      const p = await getPhoto(wiki);
       if (p.src) {
         const img = new Image();
         img.src = p.src; img.alt = name;
@@ -321,7 +357,7 @@ TEMPLES.forEach(([no, name, place, lat, lng, wiki]) => {
   });
 
   m.addTo(map);
-  markers[no] = { m, popup, shown: true };
+  markers[no] = { m, popup, shown: true, refresh(){ paintBtn(); paintIcon(el, no); } };
   const opt = document.createElement("option");
   opt.value = no; opt.textContent = `${no}. ${name}（${place.replace(/^(徳島|高知|愛媛|香川)県/,"")}）`;
   groups.find(x => no >= x.a && no <= x.b).g.appendChild(opt);
@@ -346,13 +382,96 @@ function applyFilter(){
 onlyNot.onchange = applyFilter;
 updateCount();
 
-// ---- 注意書き（地図を開いたとき、帯の下に出す。✕で閉じる） ----
-(function(){
-  const n = document.getElementById("notice"), mapEl = document.getElementById("map");
-  function fit(){ if (n.isConnected) { mapEl.style.top = (51 + n.offsetHeight) + "px"; map.resize(); } }
-  fit(); window.addEventListener("resize", fit);
-  document.getElementById("noticeClose").onclick = () => { n.remove(); mapEl.style.top = "51px"; map.resize(); };
-})();
+// ---- 帯・注意書き・地図の位置（帯が折り返して高くなっても隠れないように） ----
+const barEl = document.getElementById("bar"), noticeEl = document.getElementById("notice"), mapEl = document.getElementById("map");
+function layout(){
+  const h = barEl.offsetHeight;
+  let top = h;
+  if (noticeEl.isConnected) { noticeEl.style.top = h + "px"; top += noticeEl.offsetHeight; }
+  mapEl.style.top = top + "px";
+  map.resize();
+}
+layout();
+window.addEventListener("resize", layout);
+if (document.fonts) document.fonts.ready.then(layout);
+document.getElementById("noticeClose").onclick = () => { noticeEl.remove(); layout(); };
+map.once("load", () => { layout(); map.fitBounds(SHIKOKU, { padding: 10, animate: false }); });
+
+// ---- 記録の受け渡し（88か寺の印を短い文字にして、別の機器へ渡す） ----
+const PAGE_URL = location.origin + location.pathname;
+function encodeRecord(set){
+  const bytes = new Uint8Array(11);
+  set.forEach(no => { if (no >= 1 && no <= 88) bytes[(no-1) >> 3] |= 1 << ((no-1) & 7); });
+  return "H" + btoa(String.fromCharCode(...bytes)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function decodeRecord(text){
+  text = (text || "").trim();
+  const m = text.match(/[#&?]r=([A-Za-z0-9_-]+)/); if (m) text = m[1];
+  if (!/^H[A-Za-z0-9_-]{15}$/.test(text)) return null;
+  let bin; try { bin = atob(text.slice(1).replace(/-/g,"+").replace(/_/g,"/")); } catch(e) { return null; }
+  const set = new Set();
+  for (let i = 0; i < 88; i++) if (bin.charCodeAt(i >> 3) & (1 << (i & 7))) set.add(i + 1);
+  return set;
+}
+function addRecord(set){
+  const before = visited.size;
+  set.forEach(no => visited.add(no));
+  saveVisited(); updateCount();
+  Object.values(markers).forEach(k => k.refresh());
+  applyFilter();
+  if (before < TOTAL && visited.size === TOTAL) showKechigan();
+  return visited.size - before;
+}
+const kiroku = document.getElementById("kiroku");
+function openKiroku(){
+  const code = encodeRecord(visited);
+  document.getElementById("outCode").value = code;
+  document.getElementById("outInfo").textContent = `この機器の参拝記録が入っています（今：${visited.size}か寺）`;
+  document.getElementById("copyMsg").textContent = "";
+  document.getElementById("loadMsg").textContent = ""; document.getElementById("inCode").value = "";
+  const box = document.getElementById("qrBox");
+  try { const qr = qrcode(0, "M"); qr.addData(PAGE_URL + "#r=" + code); qr.make(); box.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true }); }
+  catch(e) { box.textContent = "QRコードを作れませんでした"; }
+  kiroku.classList.add("open");
+}
+document.getElementById("kirokuBtn").onclick = openKiroku;
+kiroku.addEventListener("click", e => { if (e.target === kiroku || e.target.hasAttribute("data-close")) kiroku.classList.remove("open"); });
+document.getElementById("copyBtn").onclick = async () => {
+  const inp = document.getElementById("outCode"), msg = document.getElementById("copyMsg");
+  try { await navigator.clipboard.writeText(inp.value); }
+  catch(e) { inp.select(); try { document.execCommand("copy"); } catch(e2) {} }
+  msg.className = "msg ok"; msg.textContent = "コピーしました。LINEやメールで、もう片方の機器に送ってください。";
+};
+document.getElementById("loadBtn").onclick = () => {
+  const msg = document.getElementById("loadMsg"), set = decodeRecord(document.getElementById("inCode").value);
+  if (!set) { msg.className = "msg ng"; msg.textContent = "文字が正しくありません。書き出した文字をそのまま貼り付けてください。"; return; }
+  const added = addRecord(set);
+  msg.className = "msg ok"; msg.textContent = `読み込みました。新しく ${added}か寺 の印が付きました（合計 ${visited.size}か寺）。`;
+  document.getElementById("outCode").value = encodeRecord(visited);
+  document.getElementById("outInfo").textContent = `この機器の参拝記録が入っています（今：${visited.size}か寺）`;
+};
+// QRコードやリンクから開いたとき（アドレスの最後が #r=…）
+function checkLink(){
+  const m = location.hash.match(/^#r=([A-Za-z0-9_-]+)$/); if (!m) return;
+  history.replaceState(null, "", location.pathname);
+  const set = decodeRecord(m[1]), ask = document.getElementById("ask"), txt = document.getElementById("askText");
+  if (!set) return;
+  const newOnes = [...set].filter(no => !visited.has(no)).length;
+  txt.innerHTML = `参拝 <b>${set.size}か寺</b> の記録を読み込みますか？<br>（このうち、この機器でまだ印がないのは ${newOnes}か寺です。今の印は消えません）`;
+  ask.classList.add("open");
+  document.getElementById("askNo").onclick = () => ask.classList.remove("open");
+  document.getElementById("askYes").onclick = () => {
+    const added = addRecord(set); ask.classList.remove("open");
+    alertBox(`読み込みました。新しく ${added}か寺 の印が付きました。`);
+  };
+}
+checkLink();
+window.addEventListener("hashchange", checkLink);
+function alertBox(text){
+  const t = document.getElementById("toast");
+  t.querySelector(".big").textContent = "㊞"; t.querySelector(".small").textContent = text;
+  t.classList.add("show"); setTimeout(() => { t.classList.remove("show"); t.querySelector(".big").textContent = "結願"; t.querySelector(".small").textContent = "八十八ヶ所 すべて参拝しました"; }, 3000);
+}
 
 // ---- オープニング ----
 (function(){
