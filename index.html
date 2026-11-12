@@ -38,6 +38,9 @@
   .pop button { margin-top:8px; width:100%; padding:9px; font-size:15px; border:2px solid var(--shu); border-radius:6px;
                 cursor:pointer; background:#fff; color:var(--shu); font-weight:700; }
   .pop button.on { background:var(--shu); color:#fff; }
+  .pop a.nav { display:block; margin-top:8px; padding:9px; font-size:15px; font-weight:700; text-align:center; text-decoration:none;
+               border-radius:6px; background:#1a73e8; color:#fff; }
+  .pop .navnote { font-size:11px; color:#888; margin-top:4px; line-height:1.4; }
   .maplibregl-popup-content { padding:10px; }
   #notice { position:absolute; top:51px; left:0; right:0; z-index:999; display:flex; align-items:flex-start; gap:8px;
             padding:8px 12px; background:#fff3d0; border-bottom:1px solid #e6c463; color:#7a5a12; font-size:13px; line-height:1.6; }
@@ -109,7 +112,7 @@
   <label><input type="checkbox" id="onlyNot"> 未参拝だけ表示</label>
   <button id="kirokuBtn">記録の受け渡し</button>
   <a id="toSaigoku" href="saigoku.html?skip">西国三十三所へ</a>
-  <span id="ver">Ver 2.1</span>
+  <span id="ver">Ver 2.2</span>
 </div>
 <div id="notice"><div class="msg">⚠ 参拝の印は、この機器のこのブラウザだけに保存されます。<br>スマホとパソコン、ブラウザが違うと別々の記録になります。</div><button id="noticeClose" aria-label="閉じる">✕</button></div>
 <div id="map"></div>
@@ -307,6 +310,22 @@ const groups = DOJO.map(([a, b, label]) => {
   const g = document.createElement("optgroup"); g.label = label; jump.appendChild(g); return { a, b, g };
 });
 
+// 現在地からの道順（グーグルマップ）。出発地を空にすると現在地からになる
+// 同じ名前が多い札所などは、グーグルマップの場所ID（位置を照らし合わせて確認済み）も渡す
+const NAV_IDS = {1:"ChIJ44K2dOZxUzURIWOzwPwg0LM",2:"ChIJl5pq5l5xUzURrcsksN1-MRs",4:"ChIJFatlXK51UzURG7NrqvUjfec",5:"ChIJz0S3fQR1UzURYCmcPJ-nDes",6:"ChIJC_AhbBCgUzURAqIrjuGAKpE",11:"ChIJExOIte6mUzURz5OpZ9uEjqE",13:"ChIJQZvb_uwLUzUR68wg-dVALZs",15:"ChIJzcoKSn4LUzURggUQXF_hhJQ",16:"ChIJPaze0mELUzURE8syzrKD_9A",28:"ChIJZ-fAU-X9UTUR5ngbA7Gt2L8",29:"ChIJ2bJJrlX9UTURXdgAI26BSEM",49:"ChIJZ0jbfiHmTzUR1-rFIGDZM5Y",53:"ChIJh8SBfvHkTzURHP4TsN_eWU0",54:"ChIJE7_CUww7UDURV-2X6PUWAsE",59:"ChIJObbvYAwwUDURUGiFJhjOAQ8",63:"ChIJJbE4DXksUDURayGfTwjzpds",68:"ChIJuWziAUGDUTURZWAE3La7fsI",69:"ChIJz9wE0yeDUTURjujDr8FK8tw",75:"ChIJf9rIeHV9UTURaLxwUChyo0s",80:"ChIJQ5s6MM3CUzUR8N5_rBgQQbg"};
+const NAV_NAMES = {
+};
+function navUrl(no, name, place){
+  let n = NAV_NAMES[no];
+  if (!n) {
+    const m = name.match(/^(.+?)（(.+)）$/);
+    n = m ? `${m[2]} ${m[1]}` : name;
+  }
+  let u = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(`${n} ${place}`);
+  if (NAV_IDS[no]) u += "&destination_place_id=" + NAV_IDS[no];
+  return u;
+}
+
 TEMPLES.forEach(([no, name, place, lat, lng, wiki]) => {
   const el = document.createElement("div");
   el.className = "fuda";
@@ -317,8 +336,11 @@ TEMPLES.forEach(([no, name, place, lat, lng, wiki]) => {
   const box = document.createElement("div");
   box.className = "pop";
   box.innerHTML = `<div class="no">第${no}番札所</div><h2>${name}</h2><div class="pref">${place}　｜　${dojo}</div>
-    <div class="photo">写真を読み込み中…</div><div class="credit"></div><button></button>`;
+    <div class="photo">写真を読み込み中…</div><div class="credit"></div><button></button>
+    <a class="nav" target="_blank" rel="noopener">現在地からの道順（グーグルマップ）</a>
+    <div class="navnote">道順はグーグルマップで表示します。グーグルマップの仕様変更などにより、行き先や道順が実際と異なる場合があります。運転中の操作はおやめください。</div>`;
   const btn = box.querySelector("button");
+  box.querySelector(".nav").href = navUrl(no, name, place);
   function paintBtn(){
     const v = visited.has(no);
     btn.textContent = v ? "㊞ 参拝済み（タップで取り消し）" : "参拝した印を付ける";
