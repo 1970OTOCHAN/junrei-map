@@ -402,7 +402,7 @@ const PAGE_URL = location.origin + location.pathname;
 function encodeRecord(set){
   const bytes = new Uint8Array(11);
   set.forEach(no => { if (no >= 1 && no <= 88) bytes[(no-1) >> 3] |= 1 << ((no-1) & 7); });
-  return "H" + btoa(String.fromCharCode(...bytes)).replace(/\+/g,"-").replace(/\//g,"_");
+  return "H" + btoa(String.fromCharCode(...bytes)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
 }
 function decodeRecord(text){
   text = (text || "").trim();
