@@ -1,6 +1,6 @@
-# 巡礼マップ（junrei-map）
+# 寺巡礼マップ（junrei-map）
 
-国土地理院の地図で、巡礼の札所をめぐるWEBアプリです。
+国土地理院の地図で、お寺の巡礼の札所をめぐるWEBアプリです。
 
 - 四国八十八ヶ所マップ：https://1970otochan.github.io/junrei-map/
 - 西国三十三所マップ：https://1970otochan.github.io/junrei-map/saigoku.html
