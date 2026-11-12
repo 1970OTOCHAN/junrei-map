@@ -116,7 +116,7 @@
   <label><input type="checkbox" id="onlyNot"> 未参拝だけ表示</label>
   <button id="kirokuBtn">記録の受け渡し</button>
   <a id="toHenro" href="./?skip">四国八十八ヶ所へ</a>
-  <span id="ver">Ver 2.7</span>
+  <span id="ver">Ver 2.8</span>
 </div>
 <div id="notice"><div class="msg">⚠ 参拝の印は、この機器のこのブラウザだけに保存されます。<br>スマホとパソコン、ブラウザが違うと別々の記録になります。</div><button id="noticeClose" aria-label="閉じる">✕</button></div>
 <div id="map"></div>
@@ -135,6 +135,7 @@
   <div class="msg" id="loadMsg"></div>
   <div class="note">今の印は消さずに、もらった印を足します。<br>（例：スマホに5か所、パソコンに3か所 → 両方の8か所になる）</div>
   <div class="tip">そろえたいときは、両方の機器で書き出し→読み込みを1回ずつすると、どちらも同じ印になります。</div>
+  <div class="note" style="font-size:11px;color:#888">QRコードは株式会社デンソーウェーブの登録商標です。</div>
 </div></div>
 <div class="modal" id="ask"><div class="sheet">
   <h2>記録の読み込み</h2>
@@ -222,7 +223,7 @@ const map = new maplibregl.Map({
 map.touchZoomRotate.disableRotation();
 map.addControl(new maplibregl.NavigationControl({ showCompass:false }), "top-left");
 map.addControl(new maplibregl.AttributionControl({ compact:false,
-  customAttribution: ['出典：<a href="https://github.com/gsi-cyberjapan/optimal_bvmap" target="_blank">国土地理院最適化ベクトルタイル</a>',
+  customAttribution: ['出典：<a href="https://github.com/gsi-cyberjapan/optimal_bvmap" target="_blank">国土地理院最適化ベクトルタイル</a>（一部を加工して表示）',
     '© 2026 1970 OTOCHAN（アプリの無断での再配布・改変・販売はご遠慮ください／スクショ・リンクでの紹介は自由）'] }));
 map.on("load", () => {
   map.getStyle().layers.forEach(l => {
