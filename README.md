@@ -1,8 +1,9 @@
-# 四国八十八ヶ所マップ
+# 巡礼マップ（junrei-map）
 
-国土地理院の地図で、お遍路をめぐるWEBアプリです。
+国土地理院の地図で、巡礼の札所をめぐるWEBアプリです。
 
-https://1970otochan.github.io/ohenro-map/
+- 四国八十八ヶ所マップ：https://1970otochan.github.io/junrei-map/
+- 西国三十三所マップ：https://1970otochan.github.io/junrei-map/saigoku.html
 
 © 2026 1970 OTOCHAN. All rights reserved.
-本アプリは四国八十八ヶ所霊場会の公式アプリではありません。
+本アプリは四国八十八ヶ所霊場会・西国三十三所札所会の公式アプリではありません。
