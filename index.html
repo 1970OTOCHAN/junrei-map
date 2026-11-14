@@ -119,7 +119,7 @@
   <label><input type="checkbox" id="onlyNot"> 未参拝だけ表示</label>
   <button id="kirokuBtn">記録の受け渡し</button>
   <a id="toSaigoku" href="saigoku.html?skip">西国三十三所へ</a>
-  <span id="ver">Ver 3.0</span>
+  <span id="ver">Ver 3.1</span>
 </div>
 <div id="notice"><div class="msg">⚠ 参拝の印は、この機器のこのブラウザだけに保存されます。<br>スマホとパソコン、ブラウザが違うと別々の記録になります。</div><button id="noticeClose" aria-label="閉じる">✕</button></div>
 <div id="map"></div>
@@ -518,6 +518,6 @@ function alertBox(text){
 })();
 </script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "e75f1ba2a4504431bdc7f3ccb9d2206a"}'></script><!-- End Cloudflare Web Analytics -->
-<script>if('serviceWorker' in navigator){addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
+<script>/* 開くたびに最新版を確認し、新しい版が届いたら1回だけ自動で読み込み直す */if('serviceWorker' in navigator){addEventListener('load',function(){var had=!!navigator.serviceWorker.controller,done=false;navigator.serviceWorker.addEventListener('controllerchange',function(){if(had&&!done){done=true;location.reload();}});navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(r){r.update().catch(function(){});document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')r.update().catch(function(){});});}).catch(function(){});});}</script>
 </body>
 </html>
